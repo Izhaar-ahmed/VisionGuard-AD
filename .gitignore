@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+outputs/
+outputs_vit/
+outputs_wrn/
+*.pt
+*.pth
+.DS_Store
+*.egg-info/
+dist/
+build/
