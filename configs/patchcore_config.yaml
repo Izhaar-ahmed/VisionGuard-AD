@@ -1,0 +1,51 @@
+# ============================================================
+# VisionGuard-AD — PatchCore Configuration
+# CVPR 2022: "Towards Total Recall in Industrial Anomaly Detection"
+# Optimized for Apple Silicon M1 (MPS backend)
+# ============================================================
+
+model:
+  backbone: wide_resnet50        # Options: wide_resnet50, resnet18, resnet50, efficientnet_b4, vit_b16
+  layers:
+    - layer2
+    - layer3
+  pretrained: true
+  patch_size: 3                  # Neighborhood size for patch aggregation (3x3 window)
+  stride: 1                     # Stride for patch extraction
+
+coreset:
+  ratio: 0.1                    # Keep 10% of patches in memory bank
+  method: greedy                 # Greedy k-center coreset subsampling
+  approximate: true              # Use random projection for >50k patches
+  projection_dim: 128            # Dimension for random projection
+  seed: 42
+
+inference:
+  num_neighbors: 9               # k-NN neighbors in memory bank
+  anomaly_map_blur_sigma: 4.0    # Gaussian sigma for anomaly map smoothing
+  normalize_method: minmax       # Options: minmax, zscore, percentile
+
+training:
+  img_size: 224
+  batch_size: 32
+  num_workers: 4                 # Reduced for M1 — unified memory architecture
+  device: auto                   # auto = MPS on M1, CUDA if available, else CPU
+  seed: 42
+
+data:
+  dataset: mvtec                 # Options: mvtec, visa
+  root: ./data/mvtec
+  category: carpet               # Override from CLI
+  val_ratio: 0.1                 # 10% of training data for validation
+
+output:
+  dir: ./outputs
+  save_visualizations: true
+  num_vis_samples: 20
+  log_level: INFO
+
+threshold:
+  default: 0.5
+  optimization_criterion: f1     # Options: f1, youden, precision_recall_balance
+  cost_fp: 1.0                   # Cost of false positive (rejecting good product)
+  cost_fn: 10.0                  # Cost of false negative (shipping defective)
