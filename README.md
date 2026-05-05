@@ -2,6 +2,36 @@
 
 **Industrial Anomaly Detection System with Multi-Backbone Comparative Analysis**
 
+![Python](https://img.shields.io/badge/Python-3.10-blue)
+![PyTorch](https://img.shields.io/badge/PyTorch-Enabled-red)
+![Status](https://img.shields.io/badge/Status-Complete-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-Passing-success)
+
+---
+
+## 🚀 TL;DR
+
+VisionGuard-AD is an unsupervised industrial anomaly detection system that learns "normal" from defect-free images and detects defects using PatchCore and FastFlow.
+
+- Achieves **98.38% Image AUROC** on MVTec-AD (carpet)
+- Supports **multiple backbones (ResNet, WideResNet, ViT)** for fair comparison
+- Includes **robustness testing** under real-world degradations
+- Enables **incremental updates** without retraining
+- Provides **end-to-end pipeline**: training → evaluation → inference → dashboard
+
+### 🔑 Key Takeaways
+
+- WideResNet-50-2 gives best accuracy but is slower and memory-heavy
+- ResNet-18 offers strong performance with much higher speed (edge-friendly)
+- ViT struggles with small texture defects due to lower spatial resolution (14×14)
+
+### 💡 Why This Matters
+
+- Reduces manual inspection cost in manufacturing
+- Detects unseen defects without labeled data
+- Adapts to real-world conditions via incremental updates
+- Provides actionable insights through failure analysis
+
 ---
 
 ## The Problem We Are Solving
@@ -14,7 +44,7 @@ The challenge is: **you have thousands of images of good products, but very few 
 
 ---
 
-## What We Did — Our Contribution
+## 🛠️ Key Contributions
 
 Most anomaly detection projects implement one model with one backbone and report numbers. We went further:
 
@@ -136,7 +166,7 @@ We tested the trained WideResNet-50 model against 6 types of image degradation t
 | Gaussian Blur | σ=4 | 97.47% | -0.9% |
 | **Random Shadow** | **30% coverage** | **47.80%** | **-50.6%** |
 
-**What we learned:**
+**Insights & Findings:**
 
 - **The model is remarkably robust** to noise, blur, brightness changes, and JPEG compression. Even extreme Gaussian noise (σ=40) only drops AUROC by 1.5%. This means minor camera quality variations in production are safe.
 
