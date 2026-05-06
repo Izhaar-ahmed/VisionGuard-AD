@@ -121,3 +121,63 @@ class TestPatchCore:
 
         assert model2.memory_bank is not None
         assert model2.memory_bank.shape == (50, total_dim)
+
+
+class TestCoresetSizeRatio:
+    """Verify coreset output matches expected size for various ratios."""
+
+    @pytest.mark.parametrize("ratio,n_input,expected", [
+        (0.1, 1000, 100),
+        (0.5, 200, 100),
+        (0.01, 10000, 100),
+        (0.25, 400, 100),
+    ])
+    def test_coreset_size_exact(self, ratio, n_input, expected):
+        sampler = CoresetSampler(ratio=ratio, device="cpu")
+        embeddings = torch.randn(n_input, 64)
+        result = sampler.run(embeddings)
+        assert result.shape[0] == expected, (
+            f"Expected {expected} patches for ratio={ratio}, N={n_input}, "
+            f"got {result.shape[0]}"
+        )
+
+    def test_coreset_preserves_dimension(self):
+        sampler = CoresetSampler(ratio=0.2, device="cpu")
+        embeddings = torch.randn(500, 256)
+        result = sampler.run(embeddings)
+        assert result.shape[1] == 256, "Embedding dimension must be preserved"
+
+
+class TestAnomalyMapPerturbation:
+    """Verify anomaly maps change when the input image is perturbed."""
+
+    def test_perturbation_changes_score(self):
+        model = PatchCore(backbone="resnet18", coreset_ratio=0.5, device="cpu")
+        feat_dims = model.feature_extractor.get_feature_dims()
+        total_dim = sum(feat_dims.values())
+        model.memory_bank = torch.randn(100, total_dim)
+
+        # Clean image
+        torch.manual_seed(0)
+        clean = torch.randn(3, 224, 224)
+        score_clean, amap_clean = model.predict(clean)
+
+        # Perturbed image (add large noise)
+        perturbed = clean + torch.randn_like(clean) * 2.0
+        score_perturbed, amap_perturbed = model.predict(perturbed)
+
+        # Anomaly maps should differ
+        diff = np.abs(amap_clean - amap_perturbed).sum()
+        assert diff > 0, "Anomaly maps should change when input is perturbed"
+
+    def test_identical_images_same_score(self):
+        model = PatchCore(backbone="resnet18", coreset_ratio=0.5, device="cpu")
+        feat_dims = model.feature_extractor.get_feature_dims()
+        total_dim = sum(feat_dims.values())
+        model.memory_bank = torch.randn(100, total_dim)
+
+        torch.manual_seed(42)
+        image = torch.randn(3, 224, 224)
+        s1, _ = model.predict(image)
+        s2, _ = model.predict(image)
+        assert abs(s1 - s2) < 1e-6, "Identical images must produce identical scores"

@@ -118,3 +118,61 @@ class TestThresholdOptimizer:
         labels = np.array([0, 0, 1, 1])
         self.optimizer.plot_roc_curve(scores, labels, save_path=str(tmp_path / "roc.png"))
         assert (tmp_path / "roc.png").exists()
+
+
+class TestThresholdEdgeCases:
+    """Edge case tests for threshold optimization."""
+
+    def setup_method(self):
+        self.optimizer = ThresholdOptimizer()
+
+    def test_all_normal_labels(self):
+        """All labels=0 should not crash; metrics should be returned."""
+        scores = np.array([0.1, 0.2, 0.3, 0.4])
+        labels = np.array([0, 0, 0, 0])
+        # Image-level metrics should handle gracefully
+        evaluator = AnomalyEvaluator()
+        metrics = evaluator.compute_image_level_metrics(scores, labels)
+        assert metrics["image_auroc"] == 0.0  # Undefined case
+
+    def test_all_anomalous_labels(self):
+        """All labels=1 should not crash."""
+        scores = np.array([0.5, 0.6, 0.7, 0.8])
+        labels = np.array([1, 1, 1, 1])
+        evaluator = AnomalyEvaluator()
+        metrics = evaluator.compute_image_level_metrics(scores, labels)
+        assert metrics["image_auroc"] == 0.0  # Undefined with single class
+
+    def test_threshold_with_tied_scores(self):
+        """Tied scores should not cause errors."""
+        scores = np.array([0.5, 0.5, 0.5, 0.5, 0.9, 0.9])
+        labels = np.array([0, 0, 0, 1, 1, 1])
+        thresh, metrics = self.optimizer.find_optimal_threshold(scores, labels, "f1")
+        assert thresh > 0
+        assert metrics["f1"] > 0
+
+
+class TestPixelMetricsSizeMismatch:
+    """Test pixel metrics with mismatched map/mask sizes."""
+
+    def test_different_sizes_handled(self):
+        """Maps and masks of different sizes should be resized automatically."""
+        evaluator = AnomalyEvaluator()
+        amap = np.random.rand(100, 100).astype(np.float64)
+        gt = np.zeros((200, 200), dtype=np.float64)
+        gt[80:120, 80:120] = 1.0
+
+        # Should not raise — evaluator resizes internally
+        metrics = evaluator.compute_pixel_level_metrics([amap], [gt])
+        assert "pixel_auroc" in metrics
+        assert 0 <= metrics["pixel_auroc"] <= 100
+
+    def test_pro_score_with_size_mismatch(self):
+        """PRO score should handle size mismatch."""
+        evaluator = AnomalyEvaluator()
+        amap = np.random.rand(50, 50).astype(np.float64)
+        gt = np.zeros((100, 100), dtype=np.float64)
+        gt[30:60, 30:60] = 1.0
+
+        pro = evaluator.compute_pro_score([amap], [gt], num_thresholds=20)
+        assert isinstance(pro, float)
