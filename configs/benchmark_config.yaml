@@ -1,0 +1,15 @@
+# ============================================================
+# VisionGuard-AD — Benchmark Configuration
+# Default settings for full 15-category MVTec-AD benchmark.
+# Override any value via CLI: python benchmark.py --backbone wide_resnet50
+# ============================================================
+
+benchmark:
+  backbone: resnet18              # Lighter backbone for full benchmark on M1
+  img_size: 224
+  batch_size: 32
+  coreset_ratio: 0.1              # Keep 10% of patches in memory bank
+  num_neighbors: 9                # k-NN neighbors for scoring
+  sigma: 4.0                      # Gaussian smoothing sigma for anomaly maps
+  device: auto                    # auto = MPS on M1, CUDA if available, else CPU
+  num_workers: 4
