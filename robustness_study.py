@@ -218,13 +218,18 @@ def plot_results(results: List[Dict], save_path: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Robustness study under real-world degradations")
-    parser.add_argument("--model_path", required=True, help="Path to trained model")
-    parser.add_argument("--backbone", default="wide_resnet50")
-    parser.add_argument("--category", default="carpet")
-    parser.add_argument("--data_root", default="./data/mvtec")
-    parser.add_argument("--device", default="cpu")
-    parser.add_argument("--output_dir", default="./outputs/robustness")
+    parser = argparse.ArgumentParser(
+        description="Robustness study under real-world degradations.\n"
+                    "Tests a trained PatchCore model against noise, blur, brightness shifts,\n"
+                    "JPEG compression, and shadows to measure AUROC degradation.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--model_path", required=True, help="Path to trained PatchCore memory bank (.pt)")
+    parser.add_argument("--backbone", default="wide_resnet50", help="Backbone used during training (default: wide_resnet50)")
+    parser.add_argument("--category", default="carpet", help="MVTec category to test (default: carpet)")
+    parser.add_argument("--data_root", default="./data/mvtec", help="Root directory of MVTec dataset")
+    parser.add_argument("--device", default="auto", help="Device: auto, cpu, mps, or cuda (default: auto)")
+    parser.add_argument("--output_dir", default="./outputs/robustness", help="Directory to save results and plots")
     args = parser.parse_args()
     
     output_dir = Path(args.output_dir)

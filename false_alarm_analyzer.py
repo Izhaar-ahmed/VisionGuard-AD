@@ -97,14 +97,19 @@ def apply_border_mask(amap: np.ndarray, border_px: int = 10) -> np.ndarray:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="False alarm analysis")
-    parser.add_argument("--model_path", required=True)
-    parser.add_argument("--backbone", default="wide_resnet50")
-    parser.add_argument("--category", default="carpet")
-    parser.add_argument("--data_root", default="./data/mvtec")
-    parser.add_argument("--device", default="cpu")
-    parser.add_argument("--border_px", type=int, default=10)
-    parser.add_argument("--output_dir", default="./outputs/false_alarm")
+    parser = argparse.ArgumentParser(
+        description="False alarm analysis for PatchCore anomaly detection.\n"
+                    "Analyzes false positives and false negatives by spatial location,\n"
+                    "identifies border artifacts, and tests border-mask mitigation.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--model_path", required=True, help="Path to trained PatchCore memory bank (.pt)")
+    parser.add_argument("--backbone", default="wide_resnet50", help="Backbone used during training (default: wide_resnet50)")
+    parser.add_argument("--category", default="carpet", help="MVTec category to analyze (default: carpet)")
+    parser.add_argument("--data_root", default="./data/mvtec", help="Root directory of MVTec dataset")
+    parser.add_argument("--device", default="auto", help="Device: auto, cpu, mps, or cuda (default: auto)")
+    parser.add_argument("--border_px", type=int, default=10, help="Border width in pixels for spatial analysis (default: 10)")
+    parser.add_argument("--output_dir", default="./outputs/false_alarm", help="Directory to save results and visualizations")
     args = parser.parse_args()
     
     output_dir = Path(args.output_dir)

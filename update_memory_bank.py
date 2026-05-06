@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse
+import json
 import logging
 import sys
 import time
@@ -133,14 +134,14 @@ def evaluate_on_images(model: PatchCore, tensors: List[torch.Tensor],
 
 def main():
     parser = argparse.ArgumentParser(description="Incremental memory bank update")
-    parser.add_argument("--model_path", required=True)
-    parser.add_argument("--backbone", default="wide_resnet50")
-    parser.add_argument("--category", default="carpet")
-    parser.add_argument("--data_root", default="./data/mvtec")
-    parser.add_argument("--device", default="cpu")
-    parser.add_argument("--num_new_images", type=int, default=20)
-    parser.add_argument("--brightness_factor", type=float, default=0.6)
-    parser.add_argument("--output_dir", default="./outputs/incremental")
+    parser.add_argument("--model_path", required=True, help="Path to trained PatchCore memory bank (.pt)")
+    parser.add_argument("--backbone", default="wide_resnet50", help="Backbone used during training (default: wide_resnet50)")
+    parser.add_argument("--category", default="carpet", help="MVTec category (default: carpet)")
+    parser.add_argument("--data_root", default="./data/mvtec", help="Root directory of MVTec dataset")
+    parser.add_argument("--device", default="auto", help="Device: auto, cpu, mps, or cuda (default: auto)")
+    parser.add_argument("--num_new_images", type=int, default=20, help="Number of new normal images to add (default: 20)")
+    parser.add_argument("--brightness_factor", type=float, default=0.6, help="Brightness multiplier for shifted images (default: 0.6)")
+    parser.add_argument("--output_dir", default="./outputs/incremental", help="Directory to save results (default: ./outputs/incremental)")
     args = parser.parse_args()
     
     output_dir = Path(args.output_dir)
