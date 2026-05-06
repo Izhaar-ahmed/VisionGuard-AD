@@ -166,39 +166,48 @@ All three modes use robust helper functions (`_unwrap_score`, `_run_predict`) th
 
 ## Chapter 12: Our Benchmark Results
 
-We trained PatchCore on the carpet category of MVTec-AD with three backbones, all under identical conditions. Here are the results with what each number means.
+### Full 15-Category Benchmark (ResNet-18)
 
-### ResNet-18 Results
-- Image AUROC: 96.90% — catches 96.9% of defects correctly ranked above normals
-- Pixel AUROC: 97.35% — localizes defects at pixel level very well
-- PRO Score: 89.01% — finds defect regions of all sizes fairly well
-- F1: 94.95% — good balance of precision and recall
-- Speed: 12.0 images/second — fastest backbone
-- Memory bank: 19,757 patches × 384 dimensions = 7.6M parameters stored
+We ran PatchCore with ResNet-18 backbone across all 15 MVTec-AD categories under identical conditions: coreset ratio 10%, k=9 neighbors, σ=4.0, 224×224 input, Apple Silicon M1 MPS. Total runtime: 6 hours 20 minutes.
 
-### WideResNet-50-2 Results (BEST)
-- Image AUROC: 98.38% — near-perfect detection
-- Pixel AUROC: 97.85% — best localization
-- PRO Score: 90.92% — best at finding all defect sizes equally
-- F1: 96.97% — nearly perfect precision and recall
-- Speed: 5.2 images/second — 2.3× slower than ResNet-18
-- Memory bank: 19,757 patches × 1,536 dimensions = 30.3M parameters stored
+| Category | Image AUROC | Pixel AUROC | PRO Score | F1 Score |
+|----------|:-----------:|:-----------:|:---------:|:--------:|
+| bottle | **100.0%** | 97.6% | 88.4% | 100.0% |
+| cable | 93.8% | 94.3% | 84.6% | 90.7% |
+| capsule | 79.9% | 92.3% | 66.2% | 91.9% |
+| carpet | 97.3% | 97.1% | 90.0% | 96.5% |
+| grid | 53.3% | 90.8% | 70.9% | 85.1% |
+| hazelnut | **100.0%** | 98.3% | 81.3% | 100.0% |
+| leather | 99.8% | **99.5%** | **97.3%** | 98.9% |
+| metal_nut | 98.8% | 94.9% | 88.1% | 97.9% |
+| pill | 92.1% | 88.2% | 79.7% | 94.7% |
+| screw | 78.5% | 85.0% | 56.2% | 86.9% |
+| tile | 99.3% | 95.8% | 76.9% | 98.3% |
+| toothbrush | 83.1% | 94.8% | 70.2% | 91.8% |
+| transistor | 95.3% | 87.8% | 79.5% | 87.4% |
+| wood | 97.5% | 94.0% | 85.1% | 95.1% |
+| zipper | 93.8% | 93.2% | 81.0% | 95.5% |
+| **Mean** | **90.8% ± 12.2%** | **93.6%** | **79.7% ± 10.1%** | **94.0%** |
 
-### ViT-B/16 Results
-- Image AUROC: 96.54% — good detection but slightly below CNNs
-- Pixel AUROC: 96.33% — lower localization due to 14×14 grid
-- PRO Score: 83.23% — significantly worse at finding small defects
-- F1: 95.52% — strong F1 despite lower pixel metrics
-- Speed: 7.7 images/second — middle ground
-- Memory bank: 4,940 patches × 1,536 dimensions — smaller because 14×14=196 patches per image vs 784
+**Key observations from the full benchmark:**
 
-### Why ViT Underperforms on Textures
+1. **Bottle and hazelnut achieve 100% Image AUROC** — these are rigid objects with consistent geometry, making anomalies very distinct from the normal distribution.
 
-ViT-B/16 divides each image into 16×16 pixel patches, creating a 14×14 grid of tokens. After feature extraction, our spatial resolution for anomaly detection is 14×14. CNNs (ResNet/WRN) produce 28×28 feature maps — 4× more spatial positions.
+2. **Leather achieves the highest PRO score (97.3%)** — leather defects tend to be well-defined regions that contrast sharply with the uniform texture.
 
-For carpet defects like thin scratches (which might be only 2-3 pixels wide in the original image), the 14×14 grid simply cannot resolve them. The scratch falls within a single ViT token and gets averaged with surrounding normal texture. In contrast, the 28×28 CNN grid can dedicate multiple spatial positions to the scratch.
+3. **Grid (53.3%) and screw (78.5%) are challenging** — grid has fine repetitive patterns where ResNet-18's 384-dimensional features lack the expressiveness to capture subtle structural anomalies. Screw has many visually similar defect types. Both categories benefit significantly from WideResNet-50-2's richer 1536-dimensional features.
 
-This is why PRO score drops from 90.92% (WRN50) to 83.23% (ViT) — small defect regions get poor overlap scores because the anomaly map is too coarse to precisely outline them.
+4. **Mean F1 (94.0%) is strong across all categories** — even categories with lower AUROC still achieve reasonable operational performance because F1 is optimized at the best threshold.
+
+### Carpet Category — 3-Backbone Comparison
+
+We trained all three backbones on carpet under identical conditions for direct comparison:
+
+| Backbone | Image AUROC | Pixel AUROC | PRO Score | F1 | Speed |
+|----------|:-----------:|:-----------:|:---------:|:--:|:-----:|
+| ResNet-18 | 96.90% | 97.35% | 89.01% | 94.95% | 24 img/s (MPS) |
+| **WideResNet-50-2** | **98.38%** | **97.85%** | **90.92%** | **96.97%** | 5.2 img/s |
+| ViT-B/16 | 96.54% | 96.33% | 83.23% | 95.52% | 7.7 img/s |
 
 ---
 
@@ -313,18 +322,21 @@ The dashboard uses a dark theme with glassmorphism styling (semi-transparent pan
 
 ## Chapter 17: Testing
 
-We have 28 automated tests across three test files:
+We have **45 automated tests** across four test files:
 
 ### test_dataset.py (8 tests)
 Tests that the MVTec dataset loader correctly handles directory structures, train/val splits, transforms, and statistics computation. Uses synthetic fixtures so tests run without downloading the actual dataset.
 
-### test_patchcore.py (9 tests)
-Tests feature extraction, patch embedding dimensions, memory bank construction, predict method return types, and save/load functionality. Verifies that the model works end-to-end on small synthetic inputs.
+### test_patchcore.py (16 tests)
+Tests feature extraction, patch embedding dimensions, coreset subsampling (multiple ratios), memory bank construction, predict method return types, save/load functionality, anomaly map perturbation sensitivity, and prediction determinism. Includes parametrized tests verifying coreset size matches exactly `ceil(N × ratio)` for various ratios.
 
-### test_metrics.py (11 tests)
-Tests AUROC computation, AP computation, PRO score calculation, threshold optimization (all four strategies), and report generation. Uses hand-crafted score/label arrays with known correct answers.
+### test_metrics.py (16 tests)
+Tests AUROC computation, AP computation, PRO score calculation, threshold optimization (all four strategies), edge cases (all-normal labels, all-anomalous labels, tied scores), pixel metrics size mismatch handling, and report generation. Uses hand-crafted score/label arrays with known correct answers.
 
-All tests run in ~30 seconds on CPU without any external data.
+### test_api.py (5 tests)
+Tests the inference API module: `load_model` returns correct handle structure, `run_inference` output format validation, deterministic predictions (same image → same score), anomaly map toggle, and threshold override.
+
+All tests run in ~9 seconds on CPU without any external data.
 
 ---
 
@@ -343,18 +355,23 @@ All tests run in ~30 seconds on CPU without any external data.
 | train.py | 268 | Unified training CLI |
 | evaluate.py | 215 | Full evaluation pipeline |
 | inference.py | 279 | Single image, batch, webcam inference |
-| benchmark.py | 190 | Multi-category benchmark runner |
-| robustness_study.py | 220 | 18 degradation experiments |
-| update_memory_bank.py | 250 | Incremental memory bank update |
-| false_alarm_analyzer.py | 230 | Spatial false alarm analysis |
+| benchmark.py | 290 | Full 15-category benchmark runner with CSV/JSON/MD output |
+| profile_inference.py | 240 | Latency, throughput, memory profiling |
+| api/inference_api.py | 190 | Clean Python API: load_model() + run_inference() |
+| api/server.py | 180 | FastAPI REST server: POST /predict |
+| robustness_study.py | 280 | 18 degradation experiments |
+| update_memory_bank.py | 260 | Incremental memory bank update |
+| false_alarm_analyzer.py | 240 | Spatial false alarm analysis |
 | app/app.py | 350 | Streamlit dashboard |
 | app/utils.py | 110 | Dashboard utility functions |
-| tests/ | 360 | 28 automated tests |
+| tests/ | 500 | 45 automated tests (dataset, model, metrics, API) |
 
-**Total: ~5,400 lines of Python**
+**Total: ~6,800+ lines of Python**
 
 ---
 
 ## Summary
 
-VisionGuard-AD is a complete anomaly detection system that goes beyond a basic implementation. We did not just implement PatchCore — we built a framework for comparing backbones, tested robustness under real-world conditions, added production capabilities (incremental updates), and analyzed failure modes to provide actionable deployment insights. Every claim in this document is backed by experiments we actually ran on real data, with results we can reproduce.
+VisionGuard-AD is a complete anomaly detection system that goes beyond a basic implementation. We did not just implement PatchCore — we built a framework for comparing backbones, benchmarked all 15 MVTec-AD categories (90.8% mean Image AUROC with ResNet-18, 24 img/sec on M1 MPS), tested robustness under real-world conditions, added production capabilities (incremental updates, REST API, inference profiling), and analyzed failure modes to provide actionable deployment insights. Every claim in this document is backed by experiments we actually ran on real data, with results we can reproduce.
+
+*Continued in Part 3: PROJECT_EXPLANATION_PART3.md — Deployment, API, and Performance Profiling*

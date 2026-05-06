@@ -7,7 +7,7 @@
 
 VisionGuard-AD is an industrial anomaly detection system. It looks at images of manufactured products (like carpet, bottles, screws) and decides whether each product is normal or defective. The key challenge: we only have images of GOOD products during training. We never show the model what defects look like. Despite this, the model learns to detect defects it has never seen before.
 
-We implemented two detection methods (PatchCore and FastFlow), tested three different neural network backbones (ResNet-18, WideResNet-50-2, ViT-B/16), and ran extensive experiments on the real MVTec-AD benchmark dataset. Beyond basic implementation, we performed robustness testing, built an incremental update system, and analyzed where the model fails and why.
+We implemented two detection methods (PatchCore and FastFlow), tested three different neural network backbones (ResNet-18, WideResNet-50-2, ViT-B/16), and benchmarked across all 15 MVTec-AD categories achieving **90.8% mean Image AUROC** with ResNet-18 and **41.7 ms/image inference latency** on Apple Silicon M1 MPS. Beyond basic implementation, we performed robustness testing (18 degradation scenarios), built an incremental update system, analyzed where the model fails and why, created a REST API (FastAPI), and profiled latency/memory for deployment sizing.
 
 ---
 
@@ -192,13 +192,13 @@ A backbone is the pretrained neural network we use to extract features. Differen
 
 The smallest backbone we tested. ResNet (Residual Network) uses skip connections that add the input of a block directly to its output. This allows training very deep networks without gradient vanishing problems. ResNet-18 has 18 layers organized in 4 groups. We extract from layer2 (128 channels) and layer3 (256 channels), giving 384-dimensional patch embeddings on a 28×28 grid.
 
-**Tradeoff**: Fast (12 img/s) and compact, but lower feature richness.
+**Tradeoff**: Fast (24 img/s on MPS, 12 img/s on CPU) and compact, but lower feature richness. Achieves 90.8% mean Image AUROC across all 15 MVTec categories.
 
 ### WideResNet-50-2 (69M parameters)
 
 A wider version of ResNet-50 where each layer has 2× more channels. More channels = richer feature representations = better anomaly detection. We extract from layer2 (512 channels) and layer3 (1024 channels), giving 1536-dimensional embeddings on a 28×28 grid.
 
-**Tradeoff**: Best accuracy (98.38% AUROC) but 6× more parameters and 2.3× slower than ResNet-18.
+**Tradeoff**: Best accuracy (98.38% AUROC on carpet) but 6× more parameters and 2.3× slower than ResNet-18. Expected to bring the full 15-category mean from 90.8% to ~96–99% based on literature.
 
 ### ViT-B/16 (86M parameters, Vision Transformer)
 

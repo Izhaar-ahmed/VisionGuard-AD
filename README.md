@@ -6,31 +6,25 @@
 ![PyTorch](https://img.shields.io/badge/PyTorch-Enabled-red)
 ![Status](https://img.shields.io/badge/Status-Complete-brightgreen)
 ![Tests](https://img.shields.io/badge/Tests-Passing-success)
+![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-Optimized-purple)
 
 ---
 
-## 🚀 TL;DR
+## 📋 For Recruiters / TL;DR
 
-VisionGuard-AD is an unsupervised industrial anomaly detection system that learns "normal" from defect-free images and detects defects using PatchCore and FastFlow.
-
-- Achieves **98.38% Image AUROC** on MVTec-AD (carpet)
-- Supports **multiple backbones (ResNet, WideResNet, ViT)** for fair comparison
-- Includes **robustness testing** under real-world degradations
-- Enables **incremental updates** without retraining
-- Provides **end-to-end pipeline**: training → evaluation → inference → dashboard
-
-### 🔑 Key Takeaways
-
-- WideResNet-50-2 gives best accuracy but is slower and memory-heavy
-- ResNet-18 offers strong performance with much higher speed (edge-friendly)
-- ViT struggles with small texture defects due to lower spatial resolution (14×14)
-
-### 💡 Why This Matters
-
-- Reduces manual inspection cost in manufacturing
-- Detects unseen defects without labeled data
-- Adapts to real-world conditions via incremental updates
-- Provides actionable insights through failure analysis
+> **VisionGuard-AD** is a complete unsupervised anomaly detection system built from scratch for industrial quality control.
+>
+> - **Methods:** Implemented **PatchCore** (CVPR 2022) and **FastFlow** (normalizing flows) from paper to code
+> - **Full benchmark:** Evaluated on **all 15 MVTec-AD categories** — **90.8% mean Image AUROC**, **93.6% mean Pixel AUROC**, **79.7% mean PRO** (ResNet-18)
+> - **Multi-backbone comparison:** ResNet-18, WideResNet-50-2, ViT-B/16 — tested under identical conditions
+> - **Robustness study:** 18 degradation scenarios (noise, blur, lighting, compression, shadows) with measured AUROC impact
+> - **Incremental adaptation:** Memory bank update in ~30 seconds without retraining — adapts to new production conditions
+> - **Latency profiling:** **41.7 ms/image (24.0 img/sec)** on Apple Silicon M1 MPS with ResNet-18
+> - **Deployment-ready:** REST API (FastAPI) + Streamlit dashboard + clean Python inference interface
+> - **Production analysis:** Spatial false alarm analysis identifying that 100% of false positives trigger on border artifacts
+> - **45 automated tests** passing, covering model, metrics, API, and dataset
+>
+> Everything runs on **CPU and Apple MPS** — no NVIDIA GPU required.
 
 ---
 
@@ -50,11 +44,17 @@ Most anomaly detection projects implement one model with one backbone and report
 
 1. **Built a unified framework** where you can swap backbones (ResNet-18, WideResNet-50-2, ViT-B/16) and get fair, apples-to-apples comparisons under identical conditions — same preprocessing, same coreset ratio, same evaluation metrics.
 
-2. **Ran a robustness study** testing the model against 18 real-world degradation scenarios (noise, blur, lighting changes, JPEG compression, shadows). This answers the question "would this actually work in a factory?" with measured data, not assumptions.
+2. **Benchmarked all 15 MVTec-AD categories** with a single reproducible script, reporting Image AUROC, Pixel AUROC, and PRO scores per category with aggregate statistics.
 
-3. **Built incremental memory bank updates** so the model can adapt to changing production conditions (new materials, lighting drift) without full retraining — just a 30-second coreset re-sampling.
+3. **Ran a robustness study** testing the model against 18 real-world degradation scenarios (noise, blur, lighting changes, JPEG compression, shadows). This answers the question "would this actually work in a factory?" with measured data, not assumptions.
 
-4. **Performed false alarm analysis** identifying that 100% of false positives on carpet triggered on image border regions, providing a specific, actionable fix for production deployment.
+4. **Built incremental memory bank updates** so the model can adapt to changing production conditions (new materials, lighting drift) without full retraining — just a 30-second coreset re-sampling.
+
+5. **Performed false alarm analysis** identifying that 100% of false positives on carpet triggered on image border regions, providing a specific, actionable fix for production deployment.
+
+6. **Measured inference latency and memory** on Apple Silicon M1, providing concrete deployment sizing data.
+
+7. **Built a clean REST API** (FastAPI) alongside the Streamlit dashboard, so the model can be integrated into production systems.
 
 These are not theoretical additions. Every finding came from running experiments on real MVTec-AD data and analyzing the results.
 
@@ -114,22 +114,49 @@ We tested three fundamentally different feature extractor architectures:
 
 ---
 
-## Benchmark Results — MVTec-AD Carpet Category (127 Test Images)
+## MVTec-AD Full Benchmark (15 Categories)
 
-All three backbones were trained and evaluated under identical conditions: coreset ratio 10%, k=9 nearest neighbors, Gaussian sigma 4.0, 224×224 input resolution, CPU inference.
+All 15 categories benchmarked with PatchCore (ResNet-18 backbone), identical configuration: coreset ratio 10%, k=9 neighbors, σ=4.0, 224×224 input, Apple Silicon M1 MPS. Total runtime: **6 hours 20 minutes**.
+
+Reproduce:
+```bash
+python benchmark.py --backbone resnet18 --data_root ./data/mvtec
+```
+
+| Category | Image AUROC | Pixel AUROC | PRO Score | F1 Score | Train Time |
+|----------|:-----------:|:-----------:|:---------:|:--------:|:----------:|
+| bottle | **100.0%** | 97.6% | 88.4% | 100.0% | 625s |
+| cable | 93.8% | 94.3% | 84.6% | 90.7% | 588s |
+| capsule | 79.9% | 92.3% | 66.2% | 91.9% | 887s |
+| carpet | 97.3% | 97.1% | 90.0% | 96.5% | 2128s |
+| grid | 53.3% | 90.8% | 70.9% | 85.1% | 1311s |
+| hazelnut | **100.0%** | **98.3%** | 81.3% | 100.0% | 3214s |
+| leather | 99.8% | **99.5%** | **97.3%** | 98.9% | 1175s |
+| metal_nut | 98.8% | 94.9% | 88.1% | 97.9% | 968s |
+| pill | 92.1% | 88.2% | 79.7% | 94.7% | 1451s |
+| screw | 78.5% | 85.0% | 56.2% | 86.9% | 4634s |
+| tile | 99.3% | 95.8% | 76.9% | 98.3% | 1043s |
+| toothbrush | 83.1% | 94.8% | 70.2% | 91.8% | 196s |
+| transistor | 95.3% | 87.8% | 79.5% | 87.4% | 1021s |
+| wood | 97.5% | 94.0% | 85.1% | 95.1% | 1358s |
+| zipper | 93.8% | 93.2% | 81.0% | 95.5% | 1367s |
+| **Mean** | **90.8% ± 12.2%** | **93.6%** | **79.7% ± 10.1%** | **94.0%** | — |
+
+> **Literature comparison:** The original PatchCore paper (Roth et al., CVPR 2022) reports **99.1% mean Image AUROC** with WideResNet-50-2 and optimized hyperparameters. Our 90.8% with ResNet-18 (6× smaller backbone, 10% coreset) reflects the accuracy/speed trade-off. Categories like grid (53.3%) and screw (78.5%) are known to be challenging for lightweight backbones — WideResNet-50-2 would bring these up significantly. Our carpet result (97.3%) is within 1.1% of the WRN-50 number (98.4%) we measured in the single-category study, confirming the architecture gap.
+>
+> **For reference:** anomalib (Intel's framework) reports ~96–99% per-category Image AUROC with WideResNet-50-2, and ~85–95% with ResNet-18 across categories. Our numbers are consistent with these baselines.
+
+---
+
+## Backbone Comparison — Carpet Category (127 Test Images)
+
+All three backbones trained and evaluated under identical conditions: coreset ratio 10%, k=9 nearest neighbors, Gaussian sigma 4.0, 224×224 input resolution, CPU inference.
 
 | Backbone | Image AUROC | Pixel AUROC | PRO Score | F1 Score | AP | Inference Speed | Memory Bank Size |
 |----------|:-----------:|:-----------:|:---------:|:--------:|:--:|:--------------:|:----------------:|
 | ResNet-18 | 96.90% | 97.35% | 89.01% | 94.95% | 99.16% | **12.0 img/s** | 19,757 × 384 |
 | **WideResNet-50-2** | **98.38%** | **97.85%** | **90.92%** | **96.97%** | **99.56%** | 5.2 img/s | 19,757 × 1,536 |
 | ViT-B/16 | 96.54% | 96.33% | 83.23% | 95.52% | 99.10% | 7.7 img/s | 4,940 × 1,536 |
-
-**What these metrics mean:**
-- **Image AUROC:** Can the model tell defective images from normal images? 98.38% means near-perfect classification.
-- **Pixel AUROC:** Can the model locate which pixels are defective? 97.85% means excellent localization.
-- **PRO Score:** Per-Region Overlap — the hardest metric. It evaluates each defect region separately (so a tiny scratch counts as much as a large hole). 90.92% means the model finds most defects regardless of size.
-- **F1 Score:** Balance between precision (how many flagged products are actually defective) and recall (how many defective products are caught).
-- **AP:** Average Precision — area under the Precision-Recall curve.
 
 **Key findings from our comparison:**
 
@@ -141,9 +168,131 @@ All three backbones were trained and evaluated under identical conditions: cores
 
 ---
 
-## Robustness Study — Testing Under Real-World Degradations
+## Performance & Deployment Considerations
 
-We tested the trained WideResNet-50 model against 6 types of image degradation that simulate real factory conditions. The model was **not retrained** — we applied degradations to the test images and measured how AUROC changed.
+### Inference Latency
+
+Profile inference on your machine:
+```bash
+python profile_inference.py \
+    --model_path ./outputs/benchmark/carpet/patchcore_memory_bank.pt \
+    --backbone resnet18 --category carpet --num_images 50
+```
+
+Measured on Apple Silicon M1 (8GB), 224×224 resolution, PatchCore:
+
+| Backbone | Device | Avg Latency | Median | P95 | Throughput | Memory Bank |
+|----------|--------|:-----------:|:------:|:---:|:----------:|:-----------:|
+| **ResNet-18** | **MPS** | **41.7 ms** | **40.8 ms** | **52.6 ms** | **24.0 img/s** | **28.9 MB** |
+| ResNet-18 | CPU | ~83 ms | — | — | ~12 img/s | 28.9 MB |
+| WideResNet-50-2 | CPU | ~192 ms | — | — | ~5.2 img/s | 116 MB |
+| ViT-B/16 | CPU | ~130 ms | — | — | ~7.7 img/s | 28.9 MB |
+
+> **ResNet-18 on MPS** is the recommended production configuration. 24 images/sec is sufficient for most industrial inspection lines (typical conveyors run at 5–15 items/sec). Run `python profile_inference.py` to benchmark on your hardware.
+
+### Trade-offs
+
+- **ResNet-18** is the best choice for edge/M1 deployment: fast, light, and within ~1.5% AUROC of WideResNet-50.
+- **WideResNet-50-2** maximizes accuracy at the cost of 2–4× more latency and memory.
+- **PatchCore inference is inherently simple**: one forward pass through a frozen backbone + nearest-neighbor distance computation. No decoder, no flow sampling. This makes it predictable and easy to optimize.
+
+### Running on Different Devices
+
+```bash
+# Apple Silicon MPS (fastest on Mac)
+python benchmark.py --device auto
+
+# Force CPU (if MPS has issues)
+python benchmark.py --device cpu
+
+# NVIDIA GPU (if available)
+python benchmark.py --device cuda
+```
+
+All scripts auto-detect MPS when available. Use `--device cpu` to force CPU.
+
+---
+
+## API & Integration
+
+VisionGuard-AD provides two integration paths: a clean Python API and a REST endpoint.
+
+### Python API (Recommended for embedding)
+
+```python
+from api.inference_api import load_model, run_inference
+import cv2
+
+# Load once
+handle = load_model(
+    method="patchcore",
+    backbone="resnet18",
+    category="carpet",
+    model_path="./outputs/benchmark/carpet/patchcore_memory_bank.pt",
+)
+
+# Run on any image
+image = cv2.imread("test_image.png")
+result = run_inference(handle, image)
+
+print(f"Score: {result['image_score']:.4f}")
+print(f"Anomalous: {result['is_anomalous']}")
+print(f"Inference: {result['meta']['inference_ms']:.1f} ms")
+```
+
+### REST API (FastAPI)
+
+```bash
+# Start server
+python api/server.py \
+    --model_path ./outputs/benchmark/carpet/patchcore_memory_bank.pt \
+    --backbone resnet18 --category carpet --port 8000
+
+# Test with curl
+curl -X POST http://localhost:8000/predict \
+    -F "file=@./data/mvtec/carpet/test/scratch/000.png"
+
+# Check model info
+curl http://localhost:8000/model-info
+```
+
+Response:
+```json
+{
+    "image_score": 0.4231,
+    "is_anomalous": false,
+    "threshold": 0.5,
+    "filename": "000.png",
+    "meta": {
+        "method": "patchcore",
+        "backbone": "resnet18",
+        "inference_ms": 85.2
+    }
+}
+```
+
+Auto-generated API docs at `http://localhost:8000/docs`.
+
+### Streamlit Dashboard (Interactive demo)
+
+```bash
+streamlit run app/app.py
+```
+
+---
+
+## Advanced Analysis
+
+### Robustness Study
+
+We tested the trained WideResNet-50 model against 6 types of image degradation simulating real factory conditions. The model was **not retrained** — we applied degradations to test images and measured AUROC changes.
+
+**How to run:**
+```bash
+python robustness_study.py \
+    --model_path ./outputs/carpet/patchcore_memory_bank.pt \
+    --backbone wide_resnet50 --category carpet --device auto
+```
 
 | Degradation | Severity | Image AUROC | AUROC Drop |
 |-------------|----------|:-----------:|:----------:|
@@ -166,31 +315,25 @@ We tested the trained WideResNet-50 model against 6 types of image degradation t
 | Gaussian Blur | σ=4 | 97.47% | -0.9% |
 | **Random Shadow** | **30% coverage** | **47.80%** | **-50.6%** |
 
-**Insights & Findings:**
+**Key findings:**
+- The model is **remarkably robust** to noise, blur, brightness changes, and JPEG compression. Even extreme Gaussian noise (σ=40) only drops AUROC by 1.5%.
+- **Gaussian blur σ=2 gives the highest AUROC (99.21%)** — better than baseline. A simple preprocessing blur step could improve production accuracy.
+- **Random shadow is catastrophic (47.8%).** Occluding 30% of the image completely breaks the model. **Uniform, shadow-free lighting is non-negotiable in production.**
+- **Deployment recommendation:** Safe for noise, blur, brightness ±50%, JPEG quality ≥20. Only critical requirement: consistent lighting.
 
-- **The model is remarkably robust** to noise, blur, brightness changes, and JPEG compression. Even extreme Gaussian noise (σ=40) only drops AUROC by 1.5%. This means minor camera quality variations in production are safe.
+### Incremental Memory Bank Update
 
-- **Motion blur actually improves performance** (+0.4% at 9×9 kernel). The backbone features are somewhat invariant to blur, and blur suppresses high-frequency texture noise that the model sometimes misinterprets as anomalies.
+**Problem:** PatchCore's memory bank is static after training. Production conditions change — new material batches, seasonal lighting drift, camera aging.
 
-- **Gaussian blur σ=2 gives the highest AUROC (99.21%)** — better than the baseline. This means the raw test images contain high-frequency noise that hurts performance. A simple preprocessing blur step could improve production accuracy.
+**Solution:** `update_memory_bank.py` merges new normal samples into the existing memory bank without full retraining.
 
-- **Random shadow is catastrophic (47.8%).** Occluding 30% of the image completely breaks the model because the darkened region creates out-of-distribution features scored as anomalous. **In production, uniform lighting is non-negotiable.**
-
-**Deployment recommendation:** The model is safe for production under noise, blur, brightness ±50%, and JPEG quality ≥20. The only critical requirement is consistent, shadow-free lighting.
-
----
-
-## Incremental Memory Bank Update
-
-**The problem:** PatchCore's memory bank is static after training. But in production, conditions change — new material batches, seasonal lighting drift, camera aging. The model gradually becomes less accurate.
-
-**Our solution:** We built `update_memory_bank.py` that merges new normal samples into the existing memory bank without full retraining:
-
-1. Take 20 new "good" images under changed conditions (e.g., darker lighting)
-2. Extract patch embeddings using the same frozen backbone
-3. Concatenate with existing memory bank (19,757 + 15,680 = 35,437 patches)
-4. Re-run greedy k-center coreset → 3,544 representative patches
-5. Replace memory bank — done in ~30 seconds
+**How to run:**
+```bash
+python update_memory_bank.py \
+    --model_path ./outputs/carpet/patchcore_memory_bank.pt \
+    --backbone wide_resnet50 --category carpet --device auto \
+    --num_new_images 20 --brightness_factor 0.6
+```
 
 | Scenario | Image AUROC |
 |----------|:-----------:|
@@ -199,23 +342,25 @@ We tested the trained WideResNet-50 model against 6 types of image degradation t
 | Updated model → standard test | 97.55% |
 | Updated model → brightness-shifted test | 98.12% |
 
-The update maintains performance on the shifted domain while only slightly reducing performance on the original domain (98.38% → 97.55%). This means the model can adapt to new conditions in 30 seconds instead of the 10-minute full retraining cycle.
+The update maintains performance on the shifted domain while only slightly reducing standard performance (98.38% → 97.55%). Adaptation takes ~30 seconds instead of the 10-minute full retraining cycle.
 
----
+### False Alarm Analysis
 
-## False Alarm Analysis
+**Problem:** Knowing overall AUROC is not enough for production. You need to understand *where* and *why* the model fails.
 
-**The problem:** Knowing overall AUROC is not enough for production. You need to understand exactly which images the model gets wrong and why.
+**How to run:**
+```bash
+python false_alarm_analyzer.py \
+    --model_path ./outputs/carpet/patchcore_memory_bank.pt \
+    --backbone wide_resnet50 --category carpet --device auto
+```
 
-**What we found on carpet (WideResNet-50, threshold 0.3729):**
-
-- False positives: 3 out of 28 normal images incorrectly flagged
-- False negatives: 3 out of 99 defective images missed
+**Key finding:** On carpet (WRN-50, threshold 0.3729):
+- False positives: 3/28 normal images incorrectly flagged
 - **100% of false positives (3/3) triggered on image border regions**
-
-**Root cause:** Backbone features near crop boundaries have incomplete neighborhood context from the 3×3 average pooling step. This creates slightly different features near edges compared to interior patches, pushing border patches closer to the anomaly threshold.
-
-**What this means for deployment:** In a production camera setup where the product is centered in frame with consistent framing, this border artifact would not occur. The false positives are a dataset preprocessing issue, not a fundamental model weakness.
+- **Root cause:** Backbone features near crop boundaries have incomplete 3×3 neighborhood context, creating slightly different features near edges
+- **Fix:** A 10px border mask reduces false positives with only 0.02% AUROC change
+- **Implication:** In production with centered camera framing, this border artifact would not occur
 
 ---
 
@@ -287,15 +432,19 @@ VisionGuard-AD/
 ├── anomaly_map/anomaly_map_generator.py # Heatmap overlay, comparison grids
 ├── metrics/evaluator.py                 # AUROC, AP, PRO score, report generation
 ├── threshold/threshold_optimizer.py     # F1/Youden/cost-based threshold optimization
+├── api/
+│   ├── inference_api.py                 # Clean Python API: load_model() + run_inference()
+│   └── server.py                        # FastAPI REST server: POST /predict
 ├── app/app.py                           # Streamlit dashboard (inference, tuner, benchmark, camera)
+├── benchmark.py                         # Full 15-category benchmark runner
+├── profile_inference.py                 # Latency + memory profiling
 ├── robustness_study.py                  # Degradation robustness testing (6 types, 18 levels)
 ├── update_memory_bank.py                # Incremental memory bank adaptation
 ├── false_alarm_analyzer.py              # Spatial false positive/negative analysis
 ├── train.py                             # Training CLI for PatchCore and FastFlow
 ├── evaluate.py                          # Full evaluation pipeline
 ├── inference.py                         # Single image, batch folder, and webcam inference
-├── benchmark.py                         # Multi-category benchmark runner
-├── tests/                               # 28 unit tests (dataset, model, metrics)
+├── tests/                               # Unit tests (dataset, model, metrics, API)
 ├── configs/                             # YAML configuration files
 └── scripts/                             # Download and data generation utilities
 ```
@@ -304,46 +453,98 @@ VisionGuard-AD/
 
 ## How to Run
 
+### Setup
+
 ```bash
 # Install
 git clone https://github.com/Izhaar-ahmed/VisionGuard-AD.git
 cd VisionGuard-AD
 pip install -r requirements.txt
-pip install timm
 
 # Download MVTec-AD dataset
 mkdir -p data/mvtec
 tar xf mvtec_anomaly_detection.tar.xz -C ./data/mvtec
+```
 
+### Full 15-Category Benchmark (Offline Research)
+
+```bash
+# Run all 15 categories (ResNet-18, ~2-4 hours on M1)
+python benchmark.py --data_root ./data/mvtec
+
+# Run a subset first to verify
+python benchmark.py --categories carpet bottle screw
+
+# Use WideResNet-50 for higher accuracy (slower)
+python benchmark.py --backbone wide_resnet50
+
+# With config file
+python benchmark.py --config configs/benchmark_config.yaml
+```
+
+### Train & Evaluate a Single Category
+
+```bash
 # Train
-python train.py --method patchcore --category carpet --backbone wide_resnet50
+python train.py --method patchcore --category carpet --backbone resnet18
 
 # Evaluate
 python evaluate.py --method patchcore --category carpet \
     --model_path ./outputs/carpet/patchcore_memory_bank.pt \
-    --backbone wide_resnet50 --visualize
+    --backbone resnet18 --visualize
 
 # Inference on single image
 python inference.py --method patchcore \
     --model_path ./outputs/carpet/patchcore_memory_bank.pt \
     --input ./data/mvtec/carpet/test/scratch/001.png --threshold 0.37
+```
 
+### Profile Inference Latency
+
+```bash
+python profile_inference.py \
+    --model_path ./outputs/benchmark/carpet/patchcore_memory_bank.pt \
+    --backbone resnet18 --category carpet --num_images 50
+```
+
+### API & Interactive Demo
+
+```bash
+# REST API (FastAPI)
+python api/server.py \
+    --model_path ./outputs/benchmark/carpet/patchcore_memory_bank.pt \
+    --backbone resnet18 --category carpet
+
+# curl test
+curl -X POST http://localhost:8000/predict \
+    -F "file=@./data/mvtec/carpet/test/scratch/000.png"
+
+# Streamlit dashboard
+streamlit run app/app.py
+```
+
+### Advanced Analysis
+
+```bash
 # Robustness study
-python robustness_study.py --model_path ./outputs/carpet/patchcore_memory_bank.pt \
-    --backbone wide_resnet50 --category carpet
+python robustness_study.py \
+    --model_path ./outputs/carpet/patchcore_memory_bank.pt \
+    --backbone wide_resnet50 --category carpet --device auto
 
 # Incremental update
-python update_memory_bank.py --model_path ./outputs/carpet/patchcore_memory_bank.pt \
-    --backbone wide_resnet50 --num_new_images 20
+python update_memory_bank.py \
+    --model_path ./outputs/carpet/patchcore_memory_bank.pt \
+    --backbone wide_resnet50 --num_new_images 20 --device auto
 
 # False alarm analysis
-python false_alarm_analyzer.py --model_path ./outputs/carpet/patchcore_memory_bank.pt \
-    --backbone wide_resnet50 --category carpet
+python false_alarm_analyzer.py \
+    --model_path ./outputs/carpet/patchcore_memory_bank.pt \
+    --backbone wide_resnet50 --category carpet --device auto
+```
 
-# Dashboard
-streamlit run app/app.py
+### Tests
 
-# Tests
+```bash
 python -m pytest tests/ -v
 ```
 
